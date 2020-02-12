@@ -6,10 +6,17 @@
 
 namespace eztrt
 {
-void Logger::log(Severity severity, const char* msg)
+Logger::Logger(std::string cat, nvinfer1::ILogger::Severity level) : cat_{cat}, level_{level} {}
+
+void Logger::log(nvinfer1::ILogger::Severity severity, const char* msg)
 {
-    // suppress info-level messages
-    if (severity != Severity::kINFO) spdlog::info("{}: {}", cat_, msg);
+    // suppress lower-level messages
+    if (static_cast<int>(severity) >= static_cast<int>(level_)) return;
+
+    if (severity == Severity::kINFO) spdlog::info("{}: {}", cat_, msg);
+    if (severity == Severity::kWARNING) spdlog::warn("{}: {}", cat_, msg);
+    if (severity == Severity::kERROR || severity == Severity::kINTERNAL_ERROR)
+        spdlog::error("{}: {}", cat_, msg);
 }
 
 bool SampleOnnxMNIST::build()
@@ -35,6 +42,7 @@ bool SampleOnnxMNIST::build()
 
     mEngine = std::shared_ptr<nvinfer1::ICudaEngine>(
         builder->buildEngineWithConfig(*network, *config), InferDeleter());
+
     if (!mEngine) { return false; }
 
     assert(network->getNbInputs() == 1);

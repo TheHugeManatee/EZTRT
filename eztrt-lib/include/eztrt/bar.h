@@ -17,14 +17,18 @@ struct InferDeleter
         if (obj) { obj->destroy(); }
     }
 };
+template<typename T>
+using InferUniquePtr = std::unique_ptr<T, InferDeleter>;
 
 class Logger : public nvinfer1::ILogger
 {
-    std::string cat_;
-
 public:
-    Logger(std::string cat) : cat_{cat} {};
+    Logger(std::string cat, Severity level = ILogger::Severity::kINFO);
     void log(Severity severity, const char* msg) override;
+
+private:
+    std::string cat_;
+    Severity    level_;
 };
 
 struct SampleParams
@@ -38,8 +42,6 @@ struct SampleParams
     std::vector<std::string> outputTensorNames;
 };
 
-template<typename T>
-using InferUniquePtr = std::unique_ptr<T, InferDeleter>;
 //! \brief  The SampleOnnxMNIST class implements the ONNX MNIST sample
 //!
 //! \details It creates the network using an ONNX model
