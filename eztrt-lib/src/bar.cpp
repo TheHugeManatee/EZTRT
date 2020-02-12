@@ -1,4 +1,4 @@
-#include "coolLib/bar.h"
+#include "eztrt/bar.h"
 
 #include <iostream>
 
@@ -9,25 +9,25 @@ namespace eztrt
 void Logger::log(Severity severity, const char* msg)
 {
     // suppress info-level messages
-    if (severity != Severity::kINFO) spdlog::info(msg);
+    if (severity != Severity::kINFO) spdlog::info("{}: {}", cat_, msg);
 }
 
 bool SampleOnnxMNIST::build()
 {
-    auto builder = SampleUniquePtr<nvinfer1::IBuilder>(nvinfer1::createInferBuilder(mLogger));
+    auto builder = InferUniquePtr<nvinfer1::IBuilder>(nvinfer1::createInferBuilder(mLogger));
     if (!builder) { return false; }
 
     const auto explicitBatch =
         1U << static_cast<uint32_t>(NetworkDefinitionCreationFlag::kEXPLICIT_BATCH);
     auto network =
-        SampleUniquePtr<nvinfer1::INetworkDefinition>(builder->createNetworkV2(explicitBatch));
+        InferUniquePtr<nvinfer1::INetworkDefinition>(builder->createNetworkV2(explicitBatch));
     if (!network) { return false; }
 
-    auto config = SampleUniquePtr<nvinfer1::IBuilderConfig>(builder->createBuilderConfig());
+    auto config = InferUniquePtr<nvinfer1::IBuilderConfig>(builder->createBuilderConfig());
     if (!config) { return false; }
 
     auto parser =
-        SampleUniquePtr<nvonnxparser::IParser>(nvonnxparser::createParser(*network, mLogger));
+        InferUniquePtr<nvonnxparser::IParser>(nvonnxparser::createParser(*network, mLogger));
     if (!parser) { return false; }
 
     auto constructed = constructNetwork(builder, network, config, parser);
@@ -56,10 +56,10 @@ bool SampleOnnxMNIST::build()
 //!
 //! \param builder Pointer to the engine builder
 //!
-bool SampleOnnxMNIST::constructNetwork(SampleUniquePtr<nvinfer1::IBuilder>&           builder,
-                                       SampleUniquePtr<nvinfer1::INetworkDefinition>& network,
-                                       SampleUniquePtr<nvinfer1::IBuilderConfig>&     config,
-                                       SampleUniquePtr<nvonnxparser::IParser>&        parser)
+bool SampleOnnxMNIST::constructNetwork(InferUniquePtr<nvinfer1::IBuilder>&           builder,
+                                       InferUniquePtr<nvinfer1::INetworkDefinition>& network,
+                                       InferUniquePtr<nvinfer1::IBuilderConfig>&     config,
+                                       InferUniquePtr<nvonnxparser::IParser>&        parser)
 {
     auto parsed = parser->parseFromFile((mParams.dataDirs[0] + "/model.onnx").c_str(),
                                         static_cast<int>(nvinfer1::ILogger::Severity::kINFO));
@@ -90,7 +90,7 @@ bool SampleOnnxMNIST::infer(uint8_t* /*data*/)
     // Create RAII buffer manager object
     samplesCommon::BufferManager buffers(mEngine, mParams.batchSize);
 
-    auto context = SampleUniquePtr<nvinfer1::IExecutionContext>(mEngine->createExecutionContext());
+    auto context = InferUniquePtr<nvinfer1::IExecutionContext>(mEngine->createExecutionContext());
     if (!context) { return false; }
 
     // Read the input data into the managed buffers

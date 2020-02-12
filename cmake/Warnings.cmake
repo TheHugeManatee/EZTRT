@@ -69,6 +69,7 @@ function(target_set_warnings)
         #list(APPEND WarningFlags "/wd4514" "/wd4710" "/wd4711")
         #list(APPEND WarningFlags "/wd4365") #signed/unsigned mismatch
         #list(APPEND WarningFlags "/wd4668") # is not defined as a preprocessor macro, replacing with '0' for
+        list(APPEND WarningFlags "/wd4100") # unreferenced formal parameter
       elseif(WGCC OR WCLANG)
         list(APPEND WarningFlags -Wno-switch-enum)
         if(WCLANG)

@@ -5,7 +5,7 @@ add_library(${TARGET_NAME}
   src/bar.cpp
 )
 
-find_package(TensorRT REQUIRED 4.0.1 COMPONENTS nvparsers nvonnxparser)
+find_package(TensorRT REQUIRED COMPONENTS nvparsers nvonnxparser)
 
 find_package(CUDA REQUIRED)
 message(STATUS "Found CUDA ${CUDA_VERSION_STRING} at ${CUDA_TOOLKIT_ROOT_DIR}")
@@ -25,7 +25,7 @@ include(GenerateExportHeader)
 generate_export_header(${TARGET_NAME} EXPORT_FILE_NAME "${TARGET_HEADER_SUBDIR}${TARGET_NAME}_export.h")
 
 # CMake scripts extensions
-target_set_warnings(${TARGET_NAME} ENABLE ALL AS_ERROR ALL DISABLE Annoying)
+target_set_warnings(${TARGET_NAME} ENABLE ALL AS_ERROR ALL DISABLE Annoying C4100)
 target_enable_lto(${TARGET_NAME} optimized) #enable lto if available for non-debug configurations
 target_compile_features(${TARGET_NAME} PRIVATE cxx_std_14)
 

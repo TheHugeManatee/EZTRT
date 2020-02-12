@@ -38,14 +38,14 @@ struct SampleParams
     std::vector<std::string> outputTensorNames;
 };
 
+template<typename T>
+using InferUniquePtr = std::unique_ptr<T, InferDeleter>;
 //! \brief  The SampleOnnxMNIST class implements the ONNX MNIST sample
 //!
 //! \details It creates the network using an ONNX model
 //!
 class SampleOnnxMNIST
 {
-    template<typename T>
-    using SampleUniquePtr = std::unique_ptr<T, InferDeleter>;
 
 public:
     SampleOnnxMNIST(SampleParams params, nvinfer1::ILogger& logger)
@@ -74,10 +74,10 @@ private:
     //!
     //! \brief Parses an ONNX model for MNIST and creates a TensorRT network
     //!
-    bool constructNetwork(SampleUniquePtr<nvinfer1::IBuilder>&           builder,
-                          SampleUniquePtr<nvinfer1::INetworkDefinition>& network,
-                          SampleUniquePtr<nvinfer1::IBuilderConfig>&     config,
-                          SampleUniquePtr<nvonnxparser::IParser>&        parser);
+    bool constructNetwork(InferUniquePtr<nvinfer1::IBuilder>&           builder,
+                          InferUniquePtr<nvinfer1::INetworkDefinition>& network,
+                          InferUniquePtr<nvinfer1::IBuilderConfig>&     config,
+                          InferUniquePtr<nvonnxparser::IParser>&        parser);
 
     //!
     //! \brief Reads the input  and stores the result in a managed buffer
