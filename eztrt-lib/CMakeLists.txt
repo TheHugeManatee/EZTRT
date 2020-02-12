@@ -1,9 +1,11 @@
-set(TARGET_NAME cool-lib)
-set(TARGET_HEADER_SUBDIR "coolLib/")
+set(TARGET_NAME eztrt)
+set(TARGET_HEADER_SUBDIR "eztrt/")
 
 add_library(${TARGET_NAME} 
   src/bar.cpp
 )
+
+find_package(TensorRT REQUIRED 4.0.1 COMPONENTS nvparsers nvonnxparser)
 
 target_link_libraries(${TARGET_NAME} 
 PUBLIC
@@ -15,7 +17,7 @@ cool-header-lib
 )
 
 # Define a macro that allows consumers of this lib to know they link against it
-target_compile_definitions(${TARGET_NAME} PUBLIC HAS_COOL_LIB)
+target_compile_definitions(${TARGET_NAME} PUBLIC HAS_EZTRT)
 
 # generate the export header for this library
 include(GenerateExportHeader)

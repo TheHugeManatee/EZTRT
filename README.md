@@ -1,4 +1,4 @@
-# C++/CMake modern boilerplate
+# EZTRT - Wrappers for NVidia TensorRT for easy use with OpenCV
 C++ template project for a cmake-based library/application project.
 
 Shows some of the best practices I found/read about from other projects on how to start a project that is able to scale. 

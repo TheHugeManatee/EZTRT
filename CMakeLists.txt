@@ -11,14 +11,14 @@
 #   - BUILD_ENABLE_WARNINGS_SETTINGS
 #   - BUILD_ENABLE_LTO
 #
-cmake_minimum_required(VERSION 3.8.2)
+cmake_minimum_required(VERSION 3.12)
 
 if(CMAKE_SOURCE_DIR STREQUAL CMAKE_BINARY_DIR)
     message(FATAL_ERROR "Do not build in-source. Please remove CMakeCache.txt and the CMakeFiles/ directory. Then build out-of-source.")
 endif()
 
-set(PROJECT_NAME "CMake-Cpp-BoilerPlate")
-set(PROJECT_TARGETS "boilerplateTargets")
+set(PROJECT_NAME "EZ TRT")
+set(PROJECT_TARGETS "ezTRTTargets")
 
 
 project(${PROJECT_NAME} CXX)
@@ -76,9 +76,9 @@ set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 # Check for LTO support (needs to be after project(...) )
 find_lto(CXX)
 
-add_subdirectory(cool-lib)
+add_subdirectory(eztrt-lib)
 add_subdirectory(cool-header-lib)
-add_subdirectory(cool-app)
+add_subdirectory(trt-host)
 
 # Setup our project as the startup project for Visual so that people don't need to do it manually
 set_directory_properties(PROPERTIES VS_STARTUP_PROJECT cool-app)
