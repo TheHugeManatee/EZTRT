@@ -77,7 +77,6 @@ set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 find_lto(CXX)
 
 add_subdirectory(eztrt-lib)
-add_subdirectory(cool-header-lib)
 add_subdirectory(trt-host)
 
 # Setup our project as the startup project for Visual so that people don't need to do it manually

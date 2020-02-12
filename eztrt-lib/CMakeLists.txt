@@ -7,13 +7,14 @@ add_library(${TARGET_NAME}
 
 find_package(TensorRT REQUIRED 4.0.1 COMPONENTS nvparsers nvonnxparser)
 
+find_package(CUDA REQUIRED)
+message(STATUS "Found CUDA ${CUDA_VERSION_STRING} at ${CUDA_TOOLKIT_ROOT_DIR}")
+
 target_link_libraries(${TARGET_NAME} 
 PUBLIC
-# No public dependencies - add libraries here which CONSUMERS of this
-# library require
+  TensorRT::TensorRT ${CUDA_LIBRARIES}
 PRIVATE
-# private dependencies that are only necessary to build this library itself
-cool-header-lib
+  ext_libs
 )
 
 # Define a macro that allows consumers of this lib to know they link against it
@@ -39,7 +40,9 @@ target_sources(${TARGET_NAME} PRIVATE ${HEADERS})
 # Set the include directories of this library
 target_include_directories(${TARGET_NAME} PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-  $<INSTALL_INTERFACE:include>)
+  $<INSTALL_INTERFACE:include>
+  ${CUDA_INCLUDE_DIRS}
+)
 
 
 ###### INSTALLATION
@@ -62,3 +65,4 @@ if(target_type STREQUAL SHARED_LIBRARY)
 endif()
 # Install the export header
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/${TARGET_HEADER_SUBDIR}${TARGET_NAME}_export.h DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/${TARGET_HEADER_SUBDIR})
+add_library(eztrt::eztrt ALIAS eztrt)
