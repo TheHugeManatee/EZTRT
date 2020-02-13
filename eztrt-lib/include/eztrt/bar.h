@@ -20,10 +20,10 @@ struct InferDeleter
 template<typename T>
 using InferUniquePtr = std::unique_ptr<T, InferDeleter>;
 
-class Logger : public nvinfer1::ILogger
+class logger : public nvinfer1::ILogger
 {
 public:
-    Logger(std::string cat, Severity level = ILogger::Severity::kINFO);
+    logger(std::string cat, Severity level = ILogger::Severity::kINFO);
     void log(Severity severity, const char* msg) override;
 
 private:
@@ -37,7 +37,8 @@ struct SampleParams
     int                      dlaCore{-1};  //!< Specify the DLA core to run network on.
     bool                     int8{false};  //!< Allow runnning the network in Int8 mode.
     bool                     fp16{false};  //!< Allow running the network in FP16 mode.
-    std::vector<std::string> dataDirs;     //!< Directory paths where sample data files are stored
+    uint64_t                 workspace_size{0};
+    std::vector<std::string> dataDirs; //!< Directory paths where sample data files are stored
     std::vector<std::string> inputTensorNames;
     std::vector<std::string> outputTensorNames;
 };

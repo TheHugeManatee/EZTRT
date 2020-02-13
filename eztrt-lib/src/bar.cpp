@@ -6,9 +6,9 @@
 
 namespace eztrt
 {
-Logger::Logger(std::string cat, nvinfer1::ILogger::Severity level) : cat_{cat}, level_{level} {}
+logger::logger(std::string cat, nvinfer1::ILogger::Severity level) : cat_{cat}, level_{level} {}
 
-void Logger::log(nvinfer1::ILogger::Severity severity, const char* msg)
+void logger::log(nvinfer1::ILogger::Severity severity, const char* msg)
 {
     // suppress lower-level messages
     if (static_cast<int>(severity) >= static_cast<int>(level_)) return;
