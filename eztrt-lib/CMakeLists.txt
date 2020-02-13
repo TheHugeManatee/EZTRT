@@ -2,7 +2,8 @@ set(TARGET_NAME eztrt)
 set(TARGET_HEADER_SUBDIR "eztrt/")
 
 add_library(${TARGET_NAME} 
-  src/bar.cpp
+  src/base.cpp
+  src/model.cpp
 )
 
 find_package(TensorRT REQUIRED COMPONENTS nvparsers nvonnxparser)
@@ -10,9 +11,12 @@ find_package(TensorRT REQUIRED COMPONENTS nvparsers nvonnxparser)
 find_package(CUDA REQUIRED)
 message(STATUS "Found CUDA ${CUDA_VERSION_STRING} at ${CUDA_TOOLKIT_ROOT_DIR}")
 
+find_package(OpenCV REQUIRED COMPONENTS core )
+
 target_link_libraries(${TARGET_NAME} 
 PUBLIC
   TensorRT::TensorRT ${CUDA_LIBRARIES}
+  opencv_core
 PRIVATE
   ext_libs
 )

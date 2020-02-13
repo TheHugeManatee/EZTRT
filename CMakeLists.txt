@@ -80,7 +80,7 @@ add_subdirectory(eztrt-lib)
 add_subdirectory(trt-host)
 
 # Setup our project as the startup project for Visual so that people don't need to do it manually
-set_directory_properties(PROPERTIES VS_STARTUP_PROJECT cool-app)
+set_directory_properties(PROPERTIES VS_STARTUP_PROJECT TRT-host)
 
 #===========#
 #   Tests   #

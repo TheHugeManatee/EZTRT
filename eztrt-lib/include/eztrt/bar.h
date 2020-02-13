@@ -7,41 +7,10 @@
 #include "NvInfer.h"
 #include "NvOnnxParser.h"
 
-namespace eztrt
-{
-struct InferDeleter
-{
-    template<typename T>
-    void operator()(T* obj) const
-    {
-        if (obj) { obj->destroy(); }
-    }
-};
-template<typename T>
-using InferUniquePtr = std::unique_ptr<T, InferDeleter>;
+#include "eztrt/base.h"
 
-class logger : public nvinfer1::ILogger
+namespace czmtrt
 {
-public:
-    logger(std::string cat, Severity level = ILogger::Severity::kINFO);
-    void log(Severity severity, const char* msg) override;
-
-private:
-    std::string cat_;
-    Severity    level_;
-};
-
-struct SampleParams
-{
-    int                      batchSize{1}; //!< Number of inputs in a batch
-    int                      dlaCore{-1};  //!< Specify the DLA core to run network on.
-    bool                     int8{false};  //!< Allow runnning the network in Int8 mode.
-    bool                     fp16{false};  //!< Allow running the network in FP16 mode.
-    uint64_t                 workspace_size{0};
-    std::vector<std::string> dataDirs; //!< Directory paths where sample data files are stored
-    std::vector<std::string> inputTensorNames;
-    std::vector<std::string> outputTensorNames;
-};
 
 //! \brief  The SampleOnnxMNIST class implements the ONNX MNIST sample
 //!
@@ -95,4 +64,4 @@ private:
     nvinfer1::ILogger& mLogger;
 };
 
-} // namespace eztrt
+} // namespace czmtrt
