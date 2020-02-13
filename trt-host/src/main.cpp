@@ -19,7 +19,7 @@ namespace eztrt
 
 int main(int argc, char* argv[])
 {
-    eztrt::logger log("Main", ILogger::Severity::kINTERNAL_ERROR);
+    eztrt::logger log("Main", ILogger::Severity::kVERBOSE);
 
     if (argc > 1)
     {
@@ -29,7 +29,7 @@ int main(int argc, char* argv[])
 
         eztrt::model m(params, log);
 
-        m.parse_file(argv[1]);
+        m.load(argv[1]);
         if (m.valid()) { spdlog::info("Loaded Network:\n{}", m.summarize()); }
         else
         {

@@ -11,6 +11,7 @@
 
 namespace eztrt
 {
+class logger;
 
 class model
 {
@@ -27,7 +28,7 @@ public:
         std::vector<std::string> outputTensorNames;
     };
 
-    model(params params, ILogger& logger);
+    model(params params, logger& logger);
 
     // Non-copyable
     model(const model& rhs) = delete;
@@ -55,7 +56,7 @@ public:
     /**
      * Parse a file (currently only ONNX is supported)
      */
-    bool parse_file(std::string file);
+    bool load(std::string file);
 
     void apply_params();
 
@@ -72,7 +73,7 @@ private:
     std::shared_ptr<nvinfer1::ICudaEngine>              engine_;
     InferUniquePtr<nvinfer1::IExecutionContext>         context_;
 
-    ILogger& logger_;
+    logger& logger_;
 
     params params_;
 };

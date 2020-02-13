@@ -4,9 +4,10 @@
 namespace eztrt
 {
 
-model::model(params params, ILogger& logger) : params_{params}, logger_{logger}
+model::model(params params, logger& logger) : params_{params}, logger_{logger}
 {
-    builder_ = eztrt::InferUniquePtr<nvinfer1::IBuilder>(nvinfer1::createInferBuilder(logger_));
+    auto logctx_ = logger_.context_scope("construct");
+    builder_     = eztrt::InferUniquePtr<nvinfer1::IBuilder>(nvinfer1::createInferBuilder(logger_));
     if (!builder_)
     {
         logger_.log(ILogger::Severity::kERROR,
@@ -36,6 +37,7 @@ model::model(params params, ILogger& logger) : params_{params}, logger_{logger}
 
 bool model::predict(cv::Mat input)
 {
+    auto logctx_ = logger_.context_scope("predict");
     assert(engine_ && network_ && config_);
 
     // Create RAII buffer manager object
@@ -43,7 +45,11 @@ bool model::predict(cv::Mat input)
 
     if (!context_)
         context_ = InferUniquePtr<nvinfer1::IExecutionContext>(engine_->createExecutionContext());
-    if (!context_) { return false; }
+    if (!context_)
+    {
+        logger_.log(ILogger::Severity::kERROR, "Could not create an execution context!");
+        return false;
+    }
 
     // Read the input data into the managed buffers
     assert(params_.inputTensorNames.size() == 1);
@@ -66,32 +72,41 @@ bool model::predict(cv::Mat input)
 
 std::string model::summarize()
 {
-    auto NumInputs = network_->getNbInputs();
-
     std::stringstream summary;
-    for (int i = 0; i < NumInputs; ++i)
+
+    if (!network_)
+        summary << "!!! No Network loaded!\n";
+    else
     {
-        auto               input = network_->getInput(i);
-        std::ostringstream dims;
-        dims << input->getDimensions();
-        summary << fmt::format("Input #{}: [{}] {} {}\n", i, input->getName(), dims.str(),
-                               to_str(input->getType()));
+        summary << " ** Network:\n";
+        auto NumInputs = network_->getNbInputs();
+
+        for (int i = 0; i < NumInputs; ++i)
+        {
+            auto               input = network_->getInput(i);
+            std::ostringstream dims;
+            dims << input->getDimensions();
+            summary << fmt::format("Input #{}: [{}] {} {}\n", i, input->getName(), dims.str(),
+                                   to_str(input->getType()));
+        }
+
+        auto NumOutputs = network_->getNbOutputs();
+        for (int i = 0; i < NumOutputs; ++i)
+        {
+            auto               output = network_->getOutput(i);
+            std::ostringstream dims;
+            dims << output->getDimensions();
+            summary << fmt::format("Output #{}: [{}] {} {}\n", i, output->getName(), dims.str(),
+                                   to_str(output->getType()));
+        }
     }
 
-    auto NumOutputs = network_->getNbOutputs();
-    for (int i = 0; i < NumOutputs; ++i)
-    {
-        auto               output = network_->getOutput(i);
-        std::ostringstream dims;
-        dims << output->getDimensions();
-        summary << fmt::format("Output #{}: [{}] {} {}\n", i, output->getName(), dims.str(),
-                               to_str(output->getType()));
-    }
     return summary.str();
 }
 
 bool model::create_engine()
 {
+    auto logctx_ = logger_.context_scope("create_engine");
     assert(network_ && config_);
     engine_ = std::shared_ptr<nvinfer1::ICudaEngine>(
         builder_->buildEngineWithConfig(*network_, *config_), InferDeleter());
@@ -104,10 +119,11 @@ bool model::create_engine()
     return true;
 }
 
-bool model::valid() { return builder_ && network_; }
+bool model::valid() { return builder_ && network_ && config_ && engine_ && context_; }
 
-bool model::parse_file(std::string file)
+bool model::load(std::string file)
 {
+    auto logctx_ = logger_.context_scope("load");
     logger_.log(ILogger::Severity::kVERBOSE, "Created Model");
     auto parser = eztrt::InferUniquePtr<nvonnxparser::IParser>(
         nvonnxparser::createParser(network(), logger_));
@@ -136,6 +152,7 @@ bool model::parse_file(std::string file)
 
 void model::apply_params()
 {
+    auto logctx_ = logger_.context_scope("apply_params");
     builder().setMaxBatchSize(params_.batchSize);
     if (params_.workspace_size) config().setMaxWorkspaceSize(params_.workspace_size);
 

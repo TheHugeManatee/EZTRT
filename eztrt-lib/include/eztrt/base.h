@@ -4,6 +4,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <stack>
 #include <string>
 #include <vector>
 
@@ -22,13 +23,27 @@ using InferUniquePtr = std::unique_ptr<T, InferDeleter>;
 
 class logger : public nvinfer1::ILogger
 {
+    struct context_holder
+    {
+        context_holder(std::string cat, logger& logger) : logger_{logger}
+        {
+            logger_.contexts_.push_back(cat);
+        }
+        ~context_holder() { logger_.contexts_.pop_back(); }
+
+    private:
+        logger& logger_;
+    };
+
 public:
+    context_holder context_scope(std::string cat) { return context_holder(cat, *this); }
+
     logger(std::string cat, Severity level = ILogger::Severity::kINFO);
     void log(Severity severity, const char* msg) override;
 
 private:
-    std::string cat_;
-    Severity    level_;
+    Severity                 level_;
+    std::vector<std::string> contexts_;
 };
 
 constexpr const char* to_str(nvinfer1::DataType dt)
