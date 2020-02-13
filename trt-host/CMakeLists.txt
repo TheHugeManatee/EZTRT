@@ -11,8 +11,12 @@ target_sources(${TARGET_NAME} PRIVATE ${HEADERS})
 
 target_include_directories(${TARGET_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
+
+find_package(OpenCV REQUIRED COMPONENTS core imgcodecs)
+
 target_link_libraries(${TARGET_NAME} 
     eztrt::eztrt 
+    opencv_imgcodecs
     ext_libs
 )
 

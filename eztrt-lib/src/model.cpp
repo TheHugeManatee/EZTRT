@@ -22,7 +22,7 @@ model::model(params params, logger& logger) : params_{params}, logger_{logger}
     if (!network_)
     {
         logger_.log(ILogger::Severity::kERROR,
-                    fmt::format("Could not instantiate network instance!").c_str());
+                    fmt::format("Could not instantiate network instance!"));
         return;
     }
 
@@ -30,15 +30,19 @@ model::model(params params, logger& logger) : params_{params}, logger_{logger}
     if (!config_)
     {
         logger_.log(ILogger::Severity::kERROR,
-                    fmt::format("Could not instantiate builder config!").c_str());
+                    fmt::format("Could not instantiate builder config!"));
         return;
     }
 }
 
-bool model::predict(cv::Mat input)
+cv::Mat model::predict(cv::Mat input)
 {
     auto logctx_ = logger_.context_scope("predict");
     assert(engine_ && network_ && config_);
+
+    // this API only works for a single input and output
+    assert(network_->getNbInputs() == 1);
+    assert(network_->getNbOutputs() == 1);
 
     // Create RAII buffer manager object
     samplesCommon::BufferManager buffers(engine_, params_.batchSize);
@@ -48,37 +52,51 @@ bool model::predict(cv::Mat input)
     if (!context_)
     {
         logger_.log(ILogger::Severity::kERROR, "Could not create an execution context!");
-        return false;
+        return {};
     }
 
-    // Read the input data into the managed buffers
-    assert(params_.inputTensorNames.size() == 1);
-    // if (!processInput(buffers)) { return false; }
+    // get the host buffer
+    auto input_tensor = network_->getInput(0);
+    auto input_buffer = wrap_tensor(*input_tensor, buffers.getHostBuffer(input_tensor->getName()));
+
+    // fill the host buffer
+    assert(input_buffer.elemSize() * input_buffer.total() == input.elemSize() * input.total());
+    input.copyTo(input_buffer);
 
     // Memcpy from host input buffers to device input buffers
     buffers.copyInputToDevice();
 
     bool status = context_->executeV2(buffers.getDeviceBindings().data());
-    if (!status) { return false; }
+    if (!status)
+    {
+        logger_.log(ILogger::Severity::kERROR, "Network execution failed!");
+        return {};
+    }
 
     // Memcpy from device output buffers to host output buffers
     buffers.copyOutputToHost();
 
-    // Verify results
-    // if (!verifyOutput(buffers)) { return false; }
+    auto output_tensor = network_->getOutput(0);
+    auto output_buffer =
+        wrap_tensor(*output_tensor, buffers.getHostBuffer(output_tensor->getName()));
 
-    return true;
+    return output_buffer;
 }
 
 std::string model::summarize()
 {
     std::stringstream summary;
 
+    if (!config_) summary << "!!! No Builder Config Object\n";
+    if (!builder_) summary << "!!! No Builder Object\n";
+    if (!engine_) summary << "!!! No Engine Object\n";
+    if (!context_) summary << "!! No context_ Object\n";
+
     if (!network_)
         summary << "!!! No Network loaded!\n";
     else
     {
-        summary << " ** Network:\n";
+        summary << " ** Network " << network_->getName() << ":\n";
         auto NumInputs = network_->getNbInputs();
 
         for (int i = 0; i < NumInputs; ++i)
@@ -108,6 +126,7 @@ bool model::create_engine()
 {
     auto logctx_ = logger_.context_scope("create_engine");
     assert(network_ && config_);
+
     engine_ = std::shared_ptr<nvinfer1::ICudaEngine>(
         builder_->buildEngineWithConfig(*network_, *config_), InferDeleter());
 
@@ -119,7 +138,7 @@ bool model::create_engine()
     return true;
 }
 
-bool model::valid() { return builder_ && network_ && config_ && engine_ && context_; }
+bool model::valid() { return builder_ && network_ && config_ && engine_; }
 
 bool model::load(std::string file)
 {
@@ -133,18 +152,17 @@ bool model::load(std::string file)
     if (!parser->parseFromFile(file.c_str(), 1))
     {
         logger_.log(ILogger::Severity::kERROR,
-                    fmt::format("Could not successfully parse {}", file).c_str());
+                    fmt::format("Could not successfully parse {}", file));
         for (int i = 0; i < parser->getNbErrors(); ++i)
         {
             auto err = parser->getError(i);
             logger_.log(ILogger::Severity::kERROR,
-                        fmt::format("[{}] {}", err->code(), err->desc()).c_str());
+                        fmt::format("[{}] {}", err->code(), err->desc()));
         }
         return false;
     }
 
     apply_params();
-
     create_engine();
 
     return true;
@@ -170,6 +188,26 @@ void model::apply_params()
     }
 
     samplesCommon::enableDLA(&builder(), &config(), params_.dlaCore);
+}
+
+cv::Mat model::wrap_tensor(nvinfer1::ITensor& tensor, void* data)
+{
+    auto d    = tensor.getDimensions();
+    int  type = 0;
+    switch (tensor.getType())
+    {
+    case nvinfer1::DataType::kFLOAT: type = CV_32FC1; break;
+    case nvinfer1::DataType::kINT32: type = CV_32SC1; break;
+    case nvinfer1::DataType::kINT8: type = CV_8SC1; break;
+    case nvinfer1::DataType::kHALF: // fallthrough
+    case nvinfer1::DataType::kBOOL: // fallthrough
+    default:
+        logger_.log(ILogger::Severity::kERROR, "Could not wrap tensor: Unknown/unsupported type {}",
+                    to_str(tensor.getType()));
+        return {};
+    }
+
+    return {d.nbDims, d.d, type, data};
 }
 
 } // namespace eztrt

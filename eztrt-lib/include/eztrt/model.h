@@ -39,7 +39,7 @@ public:
 
     ~model() = default;
 
-    bool predict(cv::Mat input);
+    cv::Mat predict(cv::Mat input);
 
     std::string summarize();
 
@@ -65,6 +65,9 @@ public:
     nvinfer1::IBuilderConfig&              config() { return *config_; }
     std::shared_ptr<nvinfer1::ICudaEngine> engine() { return engine_; };
     void set_engine(std::shared_ptr<nvinfer1::ICudaEngine> engine) { engine_ = engine; }
+
+protected:
+    cv::Mat wrap_tensor(nvinfer1::ITensor& tensor, void* data);
 
 private:
     eztrt::InferUniquePtr<nvinfer1::IBuilder>           builder_;
