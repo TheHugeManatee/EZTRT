@@ -39,7 +39,14 @@ public:
     context_holder context_scope(std::string cat) { return context_holder(cat, *this); }
 
     logger(std::string cat, Severity level = ILogger::Severity::kINFO);
+
     void log(Severity severity, const char* msg) override;
+
+    template<typename... ParamTypes>
+    void log(Severity severity, std::string msg, ParamTypes... params)
+    {
+        log(severity, fmt::format(msg, params...).c_str());
+    }
 
 private:
     Severity                 level_;
