@@ -66,4 +66,48 @@ constexpr const char* to_str(nvinfer1::DataType dt)
     }
 }
 
+constexpr const char* to_str(nvinfer1::LayerType lt)
+{
+#define CASE_LT(ENUM)                                                                              \
+    case nvinfer1::LayerType::k##ENUM: return (#ENUM) + 1
+    switch (lt)
+    {
+        CASE_LT(CONVOLUTION);
+        CASE_LT(FULLY_CONNECTED);
+        CASE_LT(ACTIVATION);
+        CASE_LT(POOLING);
+        CASE_LT(LRN);
+        CASE_LT(SCALE);
+        CASE_LT(SOFTMAX);
+        CASE_LT(DECONVOLUTION);
+        CASE_LT(CONCATENATION);
+        CASE_LT(ELEMENTWISE);
+        CASE_LT(PLUGIN);
+        CASE_LT(RNN);
+        CASE_LT(UNARY);
+        CASE_LT(PADDING);
+        CASE_LT(SHUFFLE);
+        CASE_LT(REDUCE);
+        CASE_LT(TOPK);
+        CASE_LT(GATHER);
+        CASE_LT(MATRIX_MULTIPLY);
+        CASE_LT(RAGGED_SOFTMAX);
+        CASE_LT(CONSTANT);
+        CASE_LT(RNN_V2);
+        CASE_LT(IDENTITY);
+        CASE_LT(PLUGIN_V2);
+        CASE_LT(SLICE);
+        CASE_LT(SHAPE);
+        CASE_LT(PARAMETRIC_RELU);
+        CASE_LT(RESIZE);
+        CASE_LT(TRIP_LIMIT);
+        CASE_LT(RECURRENCE);
+        CASE_LT(ITERATOR);
+        CASE_LT(LOOP_OUTPUT);
+        CASE_LT(SELECT);
+        CASE_LT(FILL);
+    default: return "unknown";
+    }
+}
+
 } // namespace eztrt

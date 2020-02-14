@@ -25,7 +25,8 @@ int main(int argc, char* argv[])
     {
         spdlog::info("Loading {}...", argv[1]);
         eztrt::model::params params;
-        params.batchSize = 8;
+        params.batchSize      = 8;
+        params.workspace_size = 128 * 1024 * 1024;
 
         eztrt::model m(params, log);
 
@@ -46,6 +47,7 @@ int main(int argc, char* argv[])
                 cv::cvtColor(in_img, in_img, cv::COLOR_BGR2GRAY);
                 in_img.convertTo(in_img, CV_32FC1, 1. / 255.);
                 in_img = 1 - in_img;
+                cv::transpose(in_img, in_img);
 
                 auto result = m.predict(in_img);
                 spdlog::info("Prediction finished!");

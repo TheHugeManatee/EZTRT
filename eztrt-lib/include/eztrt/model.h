@@ -7,6 +7,8 @@
 #include "NvInfer.h"
 #include "NvOnnxParser.h"
 
+#include <gsl/span>
+
 #include <opencv2/opencv.hpp>
 
 namespace eztrt
@@ -65,6 +67,10 @@ public:
     nvinfer1::IBuilderConfig&              config() { return *config_; }
     std::shared_ptr<nvinfer1::ICudaEngine> engine() { return engine_; };
     void set_engine(std::shared_ptr<nvinfer1::ICudaEngine> engine) { engine_ = engine; }
+
+    std::vector<nvinfer1::ILayer*>  layers();
+    std::vector<nvinfer1::ITensor*> inputs();
+    std::vector<nvinfer1::ITensor*> outputs();
 
 protected:
     cv::Mat wrap_tensor(nvinfer1::ITensor& tensor, void* data);

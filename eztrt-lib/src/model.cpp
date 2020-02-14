@@ -1,5 +1,6 @@
 
 #include "eztrt/model.h"
+#include <cassert>
 
 namespace eztrt
 {
@@ -38,11 +39,13 @@ model::model(params params, logger& logger) : params_{params}, logger_{logger}
 cv::Mat model::predict(cv::Mat input)
 {
     auto logctx_ = logger_.context_scope("predict");
-    assert(engine_ && network_ && config_);
+    assert(engine_ && network_ && config_ && "network, engine or config not initialized");
 
     // this API only works for a single input and output
-    assert(network_->getNbInputs() == 1);
-    assert(network_->getNbOutputs() == 1);
+    assert(network_->getNbInputs() == 1 &&
+           "this API can only be used for a model with a single input tensor");
+    assert(network_->getNbOutputs() == 1 &&
+           "this API can only be used for a model with a single output tensor");
 
     // Create RAII buffer manager object
     samplesCommon::BufferManager buffers(engine_, params_.batchSize);
@@ -56,12 +59,17 @@ cv::Mat model::predict(cv::Mat input)
     }
 
     // get the host buffer
-    auto input_tensor = network_->getInput(0);
-    auto input_buffer = wrap_tensor(*input_tensor, buffers.getHostBuffer(input_tensor->getName()));
+    auto input_tensor     = network_->getInput(0);
+    auto input_buffer_ptr = buffers.getHostBuffer(input_tensor->getName());
+    auto input_buffer     = wrap_tensor(*input_tensor, input_buffer_ptr);
 
     // fill the host buffer
-    assert(input_buffer.elemSize() * input_buffer.total() == input.elemSize() * input.total());
+    assert(input_buffer.elemSize() * input_buffer.total() == input.elemSize() * input.total() &&
+           "byte sizes do not match");
+    input_buffer = input_buffer.reshape(input.channels(), input.dims, input.size.p);
     input.copyTo(input_buffer);
+    assert(input_buffer.data == input_buffer_ptr &&
+           "buffer was not actually copied but re-allocated instead.");
 
     // Memcpy from host input buffers to device input buffers
     buffers.copyInputToDevice();
@@ -80,7 +88,7 @@ cv::Mat model::predict(cv::Mat input)
     auto output_buffer =
         wrap_tensor(*output_tensor, buffers.getHostBuffer(output_tensor->getName()));
 
-    return output_buffer;
+    return output_buffer.clone();
 }
 
 std::string model::summarize()
@@ -97,25 +105,31 @@ std::string model::summarize()
     else
     {
         summary << " ** Network " << network_->getName() << ":\n";
-        auto NumInputs = network_->getNbInputs();
-
-        for (int i = 0; i < NumInputs; ++i)
+        for (const auto& input : inputs())
         {
-            auto               input = network_->getInput(i);
             std::ostringstream dims;
             dims << input->getDimensions();
-            summary << fmt::format("Input #{}: [{}] {} {}\n", i, input->getName(), dims.str(),
+            summary << fmt::format("Input: [{}] {} {}\n", input->getName(), dims.str(),
                                    to_str(input->getType()));
         }
 
-        auto NumOutputs = network_->getNbOutputs();
-        for (int i = 0; i < NumOutputs; ++i)
+        for (const auto& output : outputs())
         {
-            auto               output = network_->getOutput(i);
             std::ostringstream dims;
             dims << output->getDimensions();
-            summary << fmt::format("Output #{}: [{}] {} {}\n", i, output->getName(), dims.str(),
+            summary << fmt::format("Output: [{}] {} {}\n", output->getName(), dims.str(),
                                    to_str(output->getType()));
+        }
+
+        summary << " ** Network structure\n";
+        size_t layerIdx{};
+        for (const auto& layer : layers())
+        {
+            // auto in_dim =
+            summary << fmt::format("Layer {:2}: \"{}\"({}) {} in, {} out\n", layerIdx,
+                                   layer->getName(), to_str(layer->getType()), layer->getNbInputs(),
+                                   layer->getNbOutputs());
+            ++layerIdx;
         }
     }
 
@@ -125,7 +139,7 @@ std::string model::summarize()
 bool model::create_engine()
 {
     auto logctx_ = logger_.context_scope("create_engine");
-    assert(network_ && config_);
+    assert(network_ && config_ && "network or config not initialized");
 
     engine_ = std::shared_ptr<nvinfer1::ICudaEngine>(
         builder_->buildEngineWithConfig(*network_, *config_), InferDeleter());
@@ -188,6 +202,30 @@ void model::apply_params()
     }
 
     samplesCommon::enableDLA(&builder(), &config(), params_.dlaCore);
+}
+
+std::vector<nvinfer1::ILayer*> model::layers()
+{
+    std::vector<nvinfer1::ILayer*> v(network_->getNbLayers());
+
+    std::generate(begin(v), end(v), [this, i = 0]() mutable { return network_->getLayer(i++); });
+    return v;
+}
+
+std::vector<nvinfer1::ITensor*> model::inputs()
+{
+    std::vector<nvinfer1::ITensor*> v(network_->getNbInputs());
+
+    std::generate(begin(v), end(v), [this, i = 0]() mutable { return network_->getInput(i++); });
+    return v;
+}
+
+std::vector<nvinfer1::ITensor*> model::outputs()
+{
+    std::vector<nvinfer1::ITensor*> v(network_->getNbInputs());
+
+    std::generate(begin(v), end(v), [this, i = 0]() mutable { return network_->getOutput(i++); });
+    return v;
 }
 
 cv::Mat model::wrap_tensor(nvinfer1::ITensor& tensor, void* data)
