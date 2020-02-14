@@ -565,7 +565,7 @@ inline unsigned int getElementSize(nvinfer1::DataType t)
 inline int64_t volume(const nvinfer1::Dims& d)
 {
     return std::accumulate(d.d, d.d + d.nbDims, int64_t{1},
-                           [](int64_t a, int v) { return a + int64_t(v); });
+                           [](int64_t a, int v) { return a * int64_t(v); });
 }
 
 inline unsigned int elementSize(DataType t)

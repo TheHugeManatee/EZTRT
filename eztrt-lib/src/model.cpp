@@ -126,7 +126,7 @@ std::string model::summarize()
         for (const auto& layer : layers())
         {
             // auto in_dim =
-            summary << fmt::format("Layer {:2}: \"{}\"({}) {} in, {} out\n", layerIdx,
+            summary << fmt::format("Layer {:2}: \"{}\" ({}) {} in, {} out\n", layerIdx,
                                    layer->getName(), to_str(layer->getType()), layer->getNbInputs(),
                                    layer->getNbOutputs());
             ++layerIdx;

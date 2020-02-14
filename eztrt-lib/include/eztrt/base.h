@@ -8,6 +8,8 @@
 #include <string>
 #include <vector>
 
+#include <opencv2/core.hpp>
+
 namespace eztrt
 {
 struct InferDeleter
@@ -69,7 +71,7 @@ constexpr const char* to_str(nvinfer1::DataType dt)
 constexpr const char* to_str(nvinfer1::LayerType lt)
 {
 #define CASE_LT(ENUM)                                                                              \
-    case nvinfer1::LayerType::k##ENUM: return (#ENUM) + 1
+    case nvinfer1::LayerType::k##ENUM: return (#ENUM)
     switch (lt)
     {
         CASE_LT(CONVOLUTION);
@@ -108,6 +110,7 @@ constexpr const char* to_str(nvinfer1::LayerType lt)
         CASE_LT(FILL);
     default: return "unknown";
     }
+#undef CASE_LT
 }
 
 } // namespace eztrt
