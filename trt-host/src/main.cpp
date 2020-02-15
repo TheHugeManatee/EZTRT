@@ -173,7 +173,7 @@ const char* keys = "{help h usage ? |      | print this message   }"
                    "{output         |      | output image path (optional) }"
                    "{batchsize bs   | 1    | batch size}"
                    "{workspace ws   | 128  | workspace size in MiB}"
-                   "{preprocess     |      | preprocess string (a list of 'vhrtICG' }"
+                   "{preprocess     |      | preprocess string as a list/subset of v,h,r,t,I,C,G }"
                    "{verbose v      |      | verbose output}";
 
 int main(int argc, char* argv[])
@@ -236,18 +236,20 @@ int main(int argc, char* argv[])
     spdlog::info("Prediction finished!");
 
     auto softmaxed = softmax(result);
-    show_all_channels(softmaxed);
 
-    //  display a 1D vector (classification) as a softmaxed "bar" chart
-    //     auto softmaxed = softmax(result);
-    //     spdlog::info("Final Result:\n{}", softmaxed.t());
-    //     for (int i = 0; i < softmaxed.total(); ++i)
-    //     {
-    //         std::cout << i << ": ";
-    //         for (float cnt = 0.0f; cnt < softmaxed.at<float>(i); cnt += 0.05f)
-    //             std::cout << "*";
-    //         std::cout << "\n";
-    //     }
+    if (softmaxed.dims == 4) { show_all_channels(softmaxed); }
+    else
+    {
+        //  display a 1D vector (classification) as a softmaxed "bar" chart
+        spdlog::info("Final Result:\n{}", softmaxed.t());
+        for (int i = 0; i < softmaxed.total(); ++i)
+        {
+            std::cout << i << ": ";
+            for (float cnt = 0.0f; cnt < softmaxed.at<float>(i); cnt += 0.05f)
+                std::cout << "*";
+            std::cout << "\n";
+        }
+    }
 
     return 0;
 }
