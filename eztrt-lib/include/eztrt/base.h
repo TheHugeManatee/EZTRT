@@ -3,6 +3,7 @@
 #include "NvInfer.h"
 
 #include <cstdint>
+#include <fstream>
 #include <memory>
 #include <stack>
 #include <string>
@@ -111,6 +112,12 @@ constexpr const char* to_str(nvinfer1::LayerType lt)
     default: return "unknown";
     }
 #undef CASE_LT
+}
+
+inline bool file_exists(std::string filename)
+{
+    std::ifstream f(filename);
+    return f.good();
 }
 
 } // namespace eztrt
