@@ -149,6 +149,32 @@ cv::Mat permute_dims(cv::Mat m, std::vector<int> new_order)
     return res;
 }
 
+cv::Mat attempt_adjust_input(cv::Mat input, int input_index, model& m)
+{
+
+    auto tensor = m.inputs()[input_index];
+    auto dims   = tensor->getDimensions();
+    // auto type   = tensor->getType();
+
+    assert(dims.nbDims == 4 && "Currently auto-adjust only works for 4-dimensional inputs");
+
+    int W{dims.d[3]}, H{dims.d[2]} /*, C{dims.d[1]}, N{dims.d[0]}*/;
+    assert(N == 1 && "We assume an internal batch size of 1");
+
+    // adjust size
+    if (H != input.rows || W != input.cols) cv::resize(input, input, cv::Size(W, H));
+
+    // TODO adjust type
+
+    // TODO adjust input range?
+
+    // adjust channels from HWC to CHW
+    if (input.dims == 2) { input = permute_dims(reshape_channels(input), {2, 0, 1}); }
+    // TODO adjust to NCHW?
+
+    return input;
+}
+
 } // namespace eztrt
 
 template<>
@@ -259,6 +285,7 @@ int main(int argc, char* argv[])
     in_img.convertTo(in_img, CV_32FC(in_img.channels()), 1. / 255.);
     if (!preprocess.empty()) in_img = apply_preprocess_steps(in_img, preprocess);
 
+    // in_img = attempt_adjust_input(in_img, 0, m);
     in_img = permute_dims(reshape_channels(in_img), {2, 0, 1});
 
     auto result = m.predict(in_img);
