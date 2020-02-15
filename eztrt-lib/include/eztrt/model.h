@@ -43,7 +43,7 @@ public:
 
     cv::Mat predict(cv::Mat input);
 
-    std::string summarize();
+    std::string summarize(bool verbose = false);
 
     /**
      * Creates the engine object. Call this only after network and config are set.
@@ -53,12 +53,16 @@ public:
     /**
      * Check if the model is valid for inference. If it is not, check `summarize()` for reasons.
      */
-    bool valid();
+    bool ready();
 
     /**
      * Parse a file (currently only ONNX is supported)
      */
-    bool load(std::string file);
+    bool load(std::string file, std::string engine_file = {});
+
+    bool load_engine(std::string file);
+
+    bool serialize_engine(std::string file);
 
     void apply_params();
 
@@ -76,11 +80,12 @@ protected:
     cv::Mat wrap_tensor(nvinfer1::ITensor& tensor, void* data);
 
 private:
+    InferUniquePtr<nvinfer1::IExecutionContext>         context_;
     eztrt::InferUniquePtr<nvinfer1::IBuilder>           builder_;
     eztrt::InferUniquePtr<nvinfer1::INetworkDefinition> network_;
     eztrt::InferUniquePtr<nvinfer1::IBuilderConfig>     config_;
     std::shared_ptr<nvinfer1::ICudaEngine>              engine_;
-    InferUniquePtr<nvinfer1::IExecutionContext>         context_;
+    InferUniquePtr<nvinfer1::IRuntime>                  runtime_;
 
     logger& logger_;
 

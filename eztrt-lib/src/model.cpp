@@ -1,6 +1,9 @@
 
 #include "eztrt/model.h"
+#include <stdio.h>
 #include <cassert>
+#include <fstream>
+#include <iostream>
 
 namespace eztrt
 {
@@ -91,9 +94,9 @@ cv::Mat model::predict(cv::Mat input)
     return output_buffer.clone();
 }
 
-std::string model::summarize()
+std::string model::summarize(bool verbose)
 {
-    std::stringstream summary;
+    std::ostringstream summary;
 
     if (!config_) summary << "!!! No Builder Config Object\n";
     if (!builder_) summary << "!!! No Builder Object\n";
@@ -121,15 +124,19 @@ std::string model::summarize()
                                    to_str(output->getType()));
         }
 
-        summary << " ** Network structure\n";
-        size_t layerIdx{};
-        for (const auto& layer : layers())
+        if (!verbose) { summary << "Network has a total of " << layers().size() << " layers."; }
+        else
         {
-            // auto in_dim =
-            summary << fmt::format("Layer {:2}: \"{}\" ({}) {} in, {} out\n", layerIdx,
-                                   layer->getName(), to_str(layer->getType()), layer->getNbInputs(),
-                                   layer->getNbOutputs());
-            ++layerIdx;
+            summary << " ** Network structure\n";
+            size_t layerIdx{};
+            for (const auto& layer : layers())
+            {
+                // auto in_dim =
+                summary << fmt::format("Layer {:2}: \"{}\" ({}) {} in, {} out\n", layerIdx,
+                                       layer->getName(), to_str(layer->getType()),
+                                       layer->getNbInputs(), layer->getNbOutputs());
+                ++layerIdx;
+            }
         }
     }
 
@@ -140,6 +147,7 @@ bool model::create_engine()
 {
     auto logctx_ = logger_.context_scope("create_engine");
     assert(network_ && config_ && "network or config not initialized");
+    logger_.log(ILogger::Severity::kINFO, "Building execution engine...");
 
     engine_ = std::shared_ptr<nvinfer1::ICudaEngine>(
         builder_->buildEngineWithConfig(*network_, *config_), InferDeleter());
@@ -149,15 +157,17 @@ bool model::create_engine()
         logger_.log(ILogger::Severity::kERROR, "Could not create engine!");
         return false;
     }
+    logger_.log(ILogger::Severity::kVERBOSE, "Execution engine built successfully!");
     return true;
 }
 
-bool model::valid() { return builder_ && network_ && config_ && engine_; }
+bool model::ready() { return network_ && engine_; }
 
-bool model::load(std::string file)
+bool model::load(std::string file, std::string engine_file)
 {
     auto logctx_ = logger_.context_scope("load");
-    logger_.log(ILogger::Severity::kVERBOSE, "Created Model");
+    logger_.log(ILogger::Severity::kVERBOSE, "Loading model from {}", file);
+
     auto parser = eztrt::InferUniquePtr<nvonnxparser::IParser>(
         nvonnxparser::createParser(network(), logger_));
     if (!parser) { return false; }
@@ -175,11 +185,58 @@ bool model::load(std::string file)
         }
         return false;
     }
+    logger_.log(ILogger::Severity::kVERBOSE, "Loading model definition successful!");
 
     apply_params();
-    create_engine();
+    if (!engine_file.empty()) { return load_engine(engine_file); }
+    else
+    {
+        return create_engine();
+    }
+}
 
-    return true;
+bool model::load_engine(std::string file)
+{
+    auto logctx_ = logger_.context_scope("load_engine");
+    logger_.log(ILogger::Severity::kINFO, "Loading serialized engine from {}", file);
+
+    runtime_ = InferUniquePtr<nvinfer1::IRuntime>(createInferRuntime(logger_));
+
+    std::ifstream fh(file, std::ios::binary | std::ios::ate);
+    auto          size = fh.tellg();
+    fh.seekg(0, std::ios::beg);
+    std::vector<char> buffer(size);
+    if (fh.read(buffer.data(), size))
+    {
+
+        engine_ = std::shared_ptr<nvinfer1::ICudaEngine>(
+            runtime_->deserializeCudaEngine(buffer.data(), size, nullptr), InferDeleter());
+        logger_.log(ILogger::Severity::kVERBOSE, "Engine successfully loaded.", file);
+        return true;
+    }
+
+    logger_.log(ILogger::Severity::kERROR, "Could not load serialized engine from {}!", file);
+    return false;
+}
+
+bool model::serialize_engine(std::string filename)
+{
+    auto logctx_ = logger_.context_scope("serialize_engine");
+
+    InferUniquePtr<IHostMemory> serializedModel(engine_->serialize());
+
+    auto myfile = std::fstream(filename, std::ios::out | std::ios::binary);
+    if (myfile.is_open())
+    {
+        myfile.write((const char*)serializedModel->data(), serializedModel->size());
+        logger_.log(ILogger::Severity::kINFO, "Serialized model to {}", filename);
+        return true;
+    }
+    else
+    {
+        logger_.log(ILogger::Severity::kERROR, "Could not open file {} for writing!", filename);
+        return false;
+    }
 }
 
 void model::apply_params()
