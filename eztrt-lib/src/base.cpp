@@ -15,7 +15,7 @@ logger::logger(std::string cat, nvinfer1::ILogger::Severity level) : level_{leve
 void logger::log(nvinfer1::ILogger::Severity severity, const char* msg)
 {
     // suppress lower-level messages
-    if (static_cast<int>(severity) >= static_cast<int>(level_)) return;
+    if (static_cast<int>(severity) > static_cast<int>(level_)) return;
 
     auto cat = std::accumulate(next(begin(contexts_)), end(contexts_), contexts_[0],
                                [](const auto& acc, const auto& val) { return acc + ">" + val; });
