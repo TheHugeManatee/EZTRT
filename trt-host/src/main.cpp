@@ -98,6 +98,21 @@ void show_all_channels(cv::Mat result)
     cv::waitKey(-1);
 }
 
+void save_all_channels(cv::Mat result, std::string file_base)
+{
+    assert(result.dims == 4 &&
+           "This method only works for 4-dimensional tensors of shape (1, C, H, W)");
+
+    int nChannels = result.size[1];
+    for (int c{}; c < nChannels; ++c)
+    {
+        std::vector<cv::Range> ranges{cv::Range(0, 1), cv::Range(c, c + 1), cv::Range::all(),
+                                      cv::Range::all()};
+        auto                   channel = result(ranges).reshape(1, result.size[2]);
+        cv::imwrite(fmt::format(file_base, c), channel);
+    }
+}
+
 /**
  * Reshapes a Mat to make the channels an explicit dimension. I.e. a
  * 3-channel image of (128,64) size will result in a (128,64,3) 1-channel image
@@ -170,11 +185,13 @@ struct fmt::formatter<cv::MatExpr> : formatter<cv::Mat>
 const char* keys = "{help h usage ? |      | print this message   }"
                    "{@path          |      | path to ONNX model file   }"
                    "{@input         |      | input image to feed to the model}"
-                   "{output         |      | output image path (optional) }"
-                   "{batchsize bs   | 1    | batch size}"
-                   "{workspace ws   | 128  | workspace size in MiB}"
+                   "{output         |      | output image path (optional). Leave a pair of curly "
+                   "braces in there to output per-channel}"
+                   "{engine         |      | file to a serialized engine blob}"
+                   "{bs             | 1    | batch size}"
+                   "{ws             | 128  | workspace size in MiB}"
                    "{preprocess     |      | preprocess string as a list/subset of v,h,r,t,I,C,G }"
-                   "{verbose v      |      | verbose output}";
+                   "{v              |      | verbose output}";
 
 int main(int argc, char* argv[])
 {
@@ -187,13 +204,15 @@ int main(int argc, char* argv[])
         return 0;
     }
 
-    std::string model_path  = parser.get<std::string>(0);
-    std::string input_path  = parser.get<std::string>(1);
-    std::string output_path = parser.get<std::string>("output");
-    int         bs          = parser.get<int>("bs");
-    int         ws          = parser.get<int>("ws");
-    bool        verbose     = parser.has("v");
-    std::string preprocess  = parser.get<std::string>("preprocess");
+    std::string model_path         = parser.get<std::string>(0);
+    std::string input_path         = parser.get<std::string>(1);
+    std::string output_path        = parser.get<std::string>("output");
+    int         bs                 = parser.get<int>("bs");
+    int         ws                 = parser.get<int>("ws");
+    bool        verbose            = parser.has("v");
+    std::string preprocess         = parser.get<std::string>("preprocess");
+    std::string engine_path        = parser.get<std::string>("engine");
+    bool        engine_path_exists = file_exists(engine_path);
 
     if (!parser.check())
     {
@@ -201,21 +220,31 @@ int main(int argc, char* argv[])
         return 0;
     }
 
-    logger log("Main", verbose ? ILogger::Severity::kVERBOSE : ILogger::Severity::kINFO);
-    if (model_path.empty()) { spdlog::info("No model path was set!"); }
-    spdlog::info("Loading {}...", argv[1]);
+    logger log("Main", ILogger::Severity::kVERBOSE);
+    spdlog::set_level(verbose ? spdlog::level::debug : spdlog::level::info);
+    if (verbose) spdlog::info("Verbose mode enabled.");
+    if (model_path.empty())
+    {
+        spdlog::info("No model path was set!");
+        return 1;
+    }
+
     model::params params;
     params.batchSize      = bs;
     params.workspace_size = ws * 1024 * 1024;
 
     model m(params, log);
 
-    m.load(model_path);
-    if (!m.valid())
+    spdlog::info("Loading {}...", model_path);
+    m.load(model_path, engine_path_exists ? engine_path : "");
+    if (!m.ready())
     {
         spdlog::info("Could not load network!\n{}", m.summarize());
         return 1;
     }
+
+    // if engine file didn't exist before, serialize the created engine
+    if (!engine_path_exists && !engine_path.empty()) m.serialize_engine(engine_path);
 
     spdlog::info("Loaded Network:\n{}", m.summarize());
     if (input_path.empty()) return 0;
@@ -237,7 +266,11 @@ int main(int argc, char* argv[])
 
     auto softmaxed = softmax(result);
 
-    if (softmaxed.dims == 4) { show_all_channels(softmaxed); }
+    if (softmaxed.dims == 4)
+    {
+        show_all_channels(softmaxed);
+        if (!output_path.empty()) save_all_channels(softmaxed, output_path);
+    }
     else
     {
         //  display a 1D vector (classification) as a softmaxed "bar" chart
