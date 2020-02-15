@@ -53,3 +53,4 @@ install/
 *.png
 *.onnx
 *.bmp
+data/
