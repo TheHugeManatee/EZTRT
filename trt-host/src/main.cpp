@@ -241,13 +241,15 @@ int main(int argc, char* argv[])
     else
     {
         //  display a 1D vector (classification) as a softmaxed "bar" chart
-        spdlog::info("Final Result:\n{}", softmaxed.t());
+        spdlog::info("Final Result after softmax, classes with p>0.05:");
         for (int i = 0; i < softmaxed.total(); ++i)
         {
-            std::cout << i << ": ";
-            for (float cnt = 0.0f; cnt < softmaxed.at<float>(i); cnt += 0.05f)
-                std::cout << "*";
-            std::cout << "\n";
+            auto prob = softmaxed.at<float>(i);
+            if (prob < 0.05) continue;
+            std::string stars;
+            for (float cnt = 0.0f; cnt < 1.0f; cnt += 1.f / 19.f)
+                stars += cnt > prob ? " " : "*";
+            spdlog::info("{:3}: {} [{}%]", i, stars, floorf(prob * 1000.f) / 10.f);
         }
     }
 
