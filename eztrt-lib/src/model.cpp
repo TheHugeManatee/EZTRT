@@ -51,19 +51,16 @@ cv::Mat model::predict(cv::Mat input)
            "this API can only be used for a model with a single output tensor");
 
     // Create RAII buffer manager object
-    samplesCommon::BufferManager buffers(engine_, params_.batchSize);
+    if (!buffers_)
+        buffers_ = std::make_unique<samplesCommon::BufferManager>(engine_, params_.batchSize);
 
+    // create execution context if we don't have it already
     if (!context_)
         context_ = InferUniquePtr<nvinfer1::IExecutionContext>(engine_->createExecutionContext());
-    if (!context_)
-    {
-        logger_.log(ILogger::Severity::kERROR, "Could not create an execution context!");
-        return {};
-    }
 
     // get the host buffer
     auto input_tensor     = network_->getInput(0);
-    auto input_buffer_ptr = buffers.getHostBuffer(input_tensor->getName());
+    auto input_buffer_ptr = buffers_->getHostBuffer(input_tensor->getName());
     auto input_buffer     = wrap_tensor(*input_tensor, input_buffer_ptr);
 
     // fill the host buffer
@@ -75,9 +72,9 @@ cv::Mat model::predict(cv::Mat input)
            "buffer was not actually copied but re-allocated instead.");
 
     // Memcpy from host input buffers to device input buffers
-    buffers.copyInputToDevice();
+    buffers_->copyInputToDevice();
 
-    bool status = context_->executeV2(buffers.getDeviceBindings().data());
+    bool status = context_->executeV2(buffers_->getDeviceBindings().data());
     if (!status)
     {
         logger_.log(ILogger::Severity::kERROR, "Network execution failed!");
@@ -85,11 +82,11 @@ cv::Mat model::predict(cv::Mat input)
     }
 
     // Memcpy from device output buffers to host output buffers
-    buffers.copyOutputToHost();
+    buffers_->copyOutputToHost();
 
     auto output_tensor = network_->getOutput(0);
     auto output_buffer =
-        wrap_tensor(*output_tensor, buffers.getHostBuffer(output_tensor->getName()));
+        wrap_tensor(*output_tensor, buffers_->getHostBuffer(output_tensor->getName()));
 
     return output_buffer.clone();
 }

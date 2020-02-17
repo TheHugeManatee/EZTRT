@@ -85,9 +85,10 @@ private:
     std::shared_ptr<nvinfer1::ICudaEngine>              engine_;
     InferUniquePtr<nvinfer1::IRuntime>                  runtime_;
 
-    logger& logger_;
+    std::unique_ptr<samplesCommon::BufferManager> buffers_;
 
-    params params_;
+    logger& logger_;
+    params  params_;
 };
 
 } // namespace eztrt

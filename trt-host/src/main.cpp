@@ -121,11 +121,7 @@ int main(int argc, char* argv[])
 
     while (src.read(in_img))
     {
-        if (!preprocess.empty())
-            in_data = apply_preprocess_steps(in_img, preprocess);
-        else
-            in_data = in_img;
-
+        in_data = apply_preprocess_steps(in_img, preprocess);
         in_data = try_adjust_input(in_data, 0, m);
 
         auto result = m.predict(in_data);
@@ -136,7 +132,6 @@ int main(int argc, char* argv[])
         if (softmaxed.dims == 4)
         {
             show_all_channels(softmaxed);
-            cv::waitKey(-1);
             if (!output_path.empty()) save_all_channels(softmaxed, output_path);
         }
         else
@@ -155,7 +150,7 @@ int main(int argc, char* argv[])
         }
 
         cv::imshow("input", in_img);
-        int key = cv::waitKey(-1);
+        int key = cv::waitKey(camera < 0 ? -1 : 1);
         if ((key & 0xFF) == 27) break;
         src.read(in_img);
     }
