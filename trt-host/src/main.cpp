@@ -159,7 +159,7 @@ cv::Mat attempt_adjust_input(cv::Mat input, int input_index, model& m)
     assert(dims.nbDims == 4 && "Currently auto-adjust only works for 4-dimensional inputs");
 
     int W{dims.d[3]}, H{dims.d[2]} /*, C{dims.d[1]}, N{dims.d[0]}*/;
-    assert(N == 1 && "We assume an internal batch size of 1");
+    assert(dims.d[0] == 1 && "We assume an internal batch size of 1");
 
     // adjust size
     if (H != input.rows || W != input.cols) cv::resize(input, input, cv::Size(W, H));
@@ -214,6 +214,7 @@ const char* keys = "{help h usage ? |      | print this message   }"
                    "{output         |      | output image path (optional). Leave a pair of curly "
                    "braces in there to output per-channel}"
                    "{engine         |      | file to a serialized engine blob}"
+                   "{camera         | 1    | batch size}"
                    "{bs             | 1    | batch size}"
                    "{ws             | 128  | workspace size in MiB}"
                    "{preprocess     |      | preprocess string as a list/subset of v,h,r,t,I,C,G }"
@@ -238,6 +239,7 @@ int main(int argc, char* argv[])
     bool        verbose            = parser.has("v");
     std::string preprocess         = parser.get<std::string>("preprocess");
     std::string engine_path        = parser.get<std::string>("engine");
+    bool        camera             = parser.has("engine");
     bool        engine_path_exists = file_exists(engine_path);
 
     if (!parser.check())
@@ -273,45 +275,73 @@ int main(int argc, char* argv[])
     if (!engine_path_exists && !engine_path.empty()) m.serialize_engine(engine_path);
 
     spdlog::info("Loaded Network:\n{}", m.summarize());
-    if (input_path.empty()) return 0;
+    if (input_path.empty() && !camera) return 0;
 
-    auto in_img = cv::imread(input_path);
-    if (in_img.empty())
+    cv::Mat          in_img;
+    cv::VideoCapture cam;
+
+    if (camera)
     {
-        spdlog::error("Could not read input image {}", input_path);
-        return 1;
+        cam = cv::VideoCapture(0);
+        if (!cam.isOpened()) { spdlog::error("Could not open OpenCV Camera 0"); }
     }
 
-    in_img.convertTo(in_img, CV_32FC(in_img.channels()), 1. / 255.);
-    if (!preprocess.empty()) in_img = apply_preprocess_steps(in_img, preprocess);
-
-    // in_img = attempt_adjust_input(in_img, 0, m);
-    in_img = permute_dims(reshape_channels(in_img), {2, 0, 1});
-
-    auto result = m.predict(in_img);
-    spdlog::info("Prediction finished!");
-
-    auto softmaxed = softmax(result);
-
-    if (softmaxed.dims == 4)
+    while (true)
     {
-        show_all_channels(softmaxed);
-        if (!output_path.empty()) save_all_channels(softmaxed, output_path);
-    }
-    else
-    {
-        //  display a 1D vector (classification) as a softmaxed "bar" chart
-        spdlog::info("Final Result after softmax, classes with p>0.05:");
-        for (int i = 0; i < softmaxed.total(); ++i)
+        if (!camera)
         {
-            auto prob = softmaxed.at<float>(i);
-            if (prob < 0.05) continue;
-            std::string stars;
-            for (float cnt = 0.0f; cnt < 1.0f; cnt += 1.f / 19.f)
-                stars += cnt > prob ? " " : "*";
-            spdlog::info("{:3}: {} [{}%]", i, stars, floorf(prob * 1000.f) / 10.f);
+            in_img = cv::imread(input_path);
+            if (in_img.empty())
+            {
+                spdlog::error("Could not read input image {}", input_path);
+                return 1;
+            }
+        }
+        else
+        {
+            cam >> in_img;
+            if (in_img.empty()) break;
+        }
+
+        in_img.convertTo(in_img, CV_32FC(in_img.channels()), 1. / 255.);
+        if (!preprocess.empty()) in_img = apply_preprocess_steps(in_img, preprocess);
+
+        in_img = attempt_adjust_input(in_img, 0, m);
+        // in_img = permute_dims(reshape_channels(in_img), {2, 0, 1});
+
+        auto result = m.predict(in_img);
+        spdlog::info("Prediction finished!");
+
+        auto softmaxed = softmax(result);
+
+        if (softmaxed.dims == 4)
+        {
+            show_all_channels(softmaxed);
+            if (!output_path.empty()) save_all_channels(softmaxed, output_path);
+        }
+        else
+        {
+            //  display a 1D vector (classification) as a softmaxed "bar" chart
+            spdlog::info("Final Result after softmax, classes with p>0.05:");
+            for (int i = 0; i < softmaxed.total(); ++i)
+            {
+                auto prob = softmaxed.at<float>(i);
+                if (prob < 0.05) continue;
+                std::string stars;
+                for (float cnt = 0.0f; cnt < 1.0f; cnt += 1.f / 19.f)
+                    stars += cnt > prob ? " " : "*";
+                spdlog::info("{:3}: {} [{}%]", i, stars, floorf(prob * 1000.f) / 10.f);
+            }
+        }
+
+        if (!camera)
+            break;
+        else
+        {
+            cv::imshow("input", in_img);
+            int key = cv::waitKey(1);
+            if ((key & 0xFF) == 27) break;
         }
     }
-
     return 0;
 }
