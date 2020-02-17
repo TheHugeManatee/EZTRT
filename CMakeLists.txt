@@ -18,8 +18,12 @@ if(CMAKE_SOURCE_DIR STREQUAL CMAKE_BINARY_DIR)
 endif()
 
 set(PROJECT_NAME "EZ TRT")
-set(PROJECT_TARGETS "ezTRTTargets")
-
+set(PROJECT_NAME_SHORT "eztrt") # short name without spaces, used as CMake namespace as well as file naming for the whole library collection
+set(PROJECT_TARGETS "eztrtTargets")
+set(PROJECT_VER_MAJOR 0)
+set(PROJECT_VER_MINOR 1)
+set(PROJECT_VER_PATCH 0)
+set(${PROJECT_NAME_SHORT}_VERSION "${PROJECT_VER_MAJOR}.${PROJECT_VER_MINOR}.${PROJECT_VER_PATCH}")
 
 project(${PROJECT_NAME} CXX)
 
@@ -34,13 +38,15 @@ set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 set(CMAKE_PDB_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
+set(CMAKE_DEBUG_POSTFIX "d")
+set(CMAKE_RELWITHDEBINFO_POSTFIX "rwdbi")
+
 ############################
 ##  Modules and scripts   ##
 ############################
 
 # Standard CMake modules
-
-include(CTest) # Must be called before adding tests but after calling project(). This automatically calls enable_testing() and configures ctest targets when using Make/Ninja
+#include(CTest) # Must be called before adding tests but after calling project(). This automatically calls enable_testing() and configures ctest targets when using Make/Ninja
 include(CMakeDependentOption)# This is a really useful scripts that creates options that depends on other options. It can even be used with generator expressions !
 
 # Custom modules and scripts
@@ -49,7 +55,6 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_LIST_DIR}/cmake")
 include(LTO)
 include(Warnings)
 include(CopyDllsForDebug)
-include(Coverage)
 
 ###############
 ##  OPTIONS  ##
@@ -119,4 +124,20 @@ if(BP_USE_DOXYGEN AND CMAKE_VERSION VERSION_GREATER_EQUAL 3.9)
     endif()
 endif()
 
+####################
+##  INSTALLATION  ##
+####################
+include(CMakePackageConfigHelpers)
+write_basic_package_version_file("${CMAKE_CURRENT_SOURCE_DIR}/${PROJECT_NAME_SHORT}ConfigVersion.cmake"
+  VERSION ${PROJECT_NAME_SHORT}_VERSION
+  COMPATIBILITY SameMajorVersion)
 
+install (FILES "${PROJECT_NAME_SHORT}Config.cmake" "${PROJECT_NAME_SHORT}ConfigVersion.cmake"
+  DESTINATION lib/cmake/${PROJECT_NAME_SHORT})
+
+install(EXPORT ${PROJECT_TARGETS}
+  FILE ${PROJECT_NAME_SHORT}Targets.cmake
+  NAMESPACE ${PROJECT_NAME_SHORT}::
+  DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME_SHORT})
+
+export(PACKAGE ${PROJECT_NAME_SHORT})
