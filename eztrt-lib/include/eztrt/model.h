@@ -7,8 +7,6 @@
 #include "NvInfer.h"
 #include "NvOnnxParser.h"
 
-#include <gsl/span>
-
 #include <opencv2/opencv.hpp>
 
 namespace eztrt

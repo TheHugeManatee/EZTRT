@@ -10,6 +10,7 @@
 #include <vector>
 
 #include <opencv2/core.hpp>
+#include <string_view>
 
 namespace eztrt
 {
@@ -50,6 +51,9 @@ public:
     {
         log(severity, fmt::format(msg, params...).c_str());
     }
+
+protected:
+    std::string prefix();
 
 private:
     Severity                 level_;
@@ -118,6 +122,22 @@ inline bool file_exists(std::string filename)
 {
     std::ifstream f(filename);
     return f.good();
+}
+
+// from https://www.bfilipek.com/2018/07/string-view-perf-followup.html
+inline std::vector<std::string_view> split(std::string_view str, std::string_view delims = " ")
+{
+    std::vector<std::string_view> output;
+
+    for (auto first = str.data(), second = str.data(), last = first + str.size();
+         second != last && first != last; first = second + 1)
+    {
+        second = std::find_first_of(first, last, std::cbegin(delims), std::cend(delims));
+
+        if (first != second) output.emplace_back(first, second - first);
+    }
+
+    return output;
 }
 
 } // namespace eztrt
