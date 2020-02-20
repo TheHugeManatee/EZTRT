@@ -49,8 +49,9 @@ const char* keys =
     "{output         |      | output image path (optional). Leave a pair of curly "
     "braces in there to output per-channel}"
     "{engine         |      | file to a serialized engine blob}"
-    "{bs             | 1    | batch size}"
-    "{ws             | 128  | workspace size in MiB}"
+    "{classes        |      | json file that contains a index->class label map to use for lookup}"
+    "{bs             |   1  | batch size}"
+    "{ws             | 2048 | workspace size in MiB}"
     "{preprocess     |      | preprocess string as a list/subset of v,h,r,t,I,C,G }"
     "{v              |      | verbose output}";
 
@@ -69,12 +70,20 @@ int main(int argc, char* argv[])
     std::string input_path         = parser.get<std::string>(1);
     std::string output_path        = parser.get<std::string>("output");
     int         bs                 = parser.get<int>("bs");
-    int         ws                 = parser.get<int>("ws");
+    size_t      ws                 = parser.get<int>("ws");
     bool        verbose            = parser.has("v");
     std::string preprocess         = parser.get<std::string>("preprocess");
     std::string engine_path        = parser.get<std::string>("engine");
+    std::string classes_path       = parser.get<std::string>("classes");
     bool        engine_path_exists = file_exists(engine_path);
     int         camera             = input_path == "CAMERA0" ? 0 : input_path == "CAMERA1" ? 1 : -1;
+
+    auto classes = [&]() -> std::unordered_map<size_t, std::string> {
+        if (file_exists(classes_path))
+            return load_class_labels(classes_path);
+        else
+            return {};
+    }();
 
     if (!parser.check())
     {
@@ -145,7 +154,8 @@ int main(int argc, char* argv[])
                 std::string stars;
                 for (float cnt = 0.0f; cnt < 1.0f; cnt += 1.f / 19.f)
                     stars += cnt > prob ? " " : "*";
-                spdlog::info("{:3}: {} [{}%]", i, stars, floorf(prob * 1000.f) / 10.f);
+                auto clsname = classes[i];
+                spdlog::info("{:3}: {} [{:4.1f}%] {}", i, stars, prob * 100.f, clsname);
             }
         }
 

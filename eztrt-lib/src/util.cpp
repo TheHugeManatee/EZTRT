@@ -1,6 +1,8 @@
 #include "eztrt/util.h"
 #include "eztrt/model.h"
 
+#include "json.hpp"
+
 namespace eztrt
 {
 
@@ -72,38 +74,24 @@ cv::Mat apply_preprocess_steps(cv::Mat in, std::string step_list)
 
 void show_all_channels(cv::Mat result)
 {
-    assert(result.dims == 4 ||
-           result.dims == 3 &&
-               "This method only works for 4-dimensional tensors of shape (1, C, H, W)");
-
-    int  channel_dim = result.dims == 4 ? 1 : 0;
-    auto ranges      = result.dims == 3
-                      ? std::vector<cv::Range>{cv::Range::all(), cv::Range::all(), cv::Range::all()}
-                      : std::vector<cv::Range>{cv::Range(0, 1), cv::Range::all(), cv::Range::all(),
-                                               cv::Range::all()};
-
-    int nChannels = result.size[channel_dim];
-    for (int c{}; c < nChannels; ++c)
-    {
-        ranges[channel_dim] = cv::Range(c, c + 1);
-        auto channel        = result(ranges).reshape(1, result.size[2]);
+    for_each_channel(result, [](const int& c, cv::Mat& channel) {
         cv::imshow("Output #" + std::to_string(c), channel);
-    }
+    });
 }
 
 void save_all_channels(cv::Mat result, std::string file_base)
 {
-    assert(result.dims == 4 &&
-           "This method only works for 4-dimensional tensors of shape (1, C, H, W)");
-
-    int nChannels = result.size[1];
-    for (int c{}; c < nChannels; ++c)
-    {
-        std::vector<cv::Range> ranges{cv::Range(0, 1), cv::Range(c, c + 1), cv::Range::all(),
-                                      cv::Range::all()};
-        auto                   channel = result(ranges).reshape(1, result.size[2]);
+    for_each_channel(result, [&](const int& c, const cv::Mat& channel) {
         cv::imwrite(fmt::format(file_base, c), channel);
-    }
+    });
+}
+
+std::vector<cv::Mat> separate_channels(cv::Mat result)
+{
+    std::vector<cv::Mat> channels;
+    for_each_channel(result,
+                     [&](const int& c, const cv::Mat& channel) { channels.push_back(channel); });
+    return channels;
 }
 
 cv::Mat reshape_channels(cv::Mat m)
@@ -125,7 +113,7 @@ cv::Mat permute_dims(cv::Mat m, std::vector<int> new_order)
 
     // \TODO: this is pretty un-performant. I do a copy so I don't have to worry about in-place
     //       swapping, which would be way more efficient. however, can't figure out a good policy
-    //       right now on account of tiredness..
+    //       right now on account of tiredness and, frankly, who cares.
     m.clone().forEach<float>([&](float& v, const int* p) {
         std::vector<int> old_pos(m.dims);
         std::generate_n(begin(old_pos), m.dims, [&, i = 0]() mutable { return p[new_order[i++]]; });
@@ -209,6 +197,26 @@ cv::Mat try_adjust_input(cv::Mat input, int input_index, model& m)
     if (input.dims == 2) { input = permute_dims(reshape_channels(input), {2, 0, 1}); }
 
     return input;
+}
+
+std::unordered_map<size_t, std::string> load_class_labels(const std::string& filename)
+{
+    using json = nlohmann::json;
+
+    std::ifstream ifs(filename);
+    if (ifs.is_open())
+    {
+        std::unordered_map<size_t, std::string> class_label_map;
+        auto                                    parsed_data = json::parse(ifs);
+
+        for (auto& [key, value] : parsed_data.items())
+        {
+            size_t cls_idx           = atoi(key.c_str());
+            class_label_map[cls_idx] = value.get<std::string>();
+        }
+        return class_label_map;
+    }
+    return {};
 }
 
 } // namespace eztrt

@@ -38,6 +38,14 @@ void show_all_channels(cv::Mat result);
 void save_all_channels(cv::Mat result, std::string file_base);
 
 /**
+ * Helper function to explicity separate the channels of a $[1,C,H,W]$-shaped matrix/tensor.
+ * returns the channels as vector.
+ * Note: Returned channels are in-place references to the original image so modifications will
+ * propagate back to the original if no `.clone()` is performed.
+ */
+std::vector<cv::Mat> separate_channels(cv::Mat result);
+
+/**
  * Reshapes a Mat to make the channels an explicit dimension. I.e. a
  * 3-channel image of (128,64) size will result in a (128,64,3) 1-channel image.
  */
@@ -59,7 +67,7 @@ cv::Mat permute_dims(cv::Mat m, std::vector<int> new_order);
 /**
  * Attempts to automatically adjust the shape of the given input to what the model expects.
  * Currently only works with a 2D image as an input and a model that expects a [N,H,W,C] input which
- *is the usual input shape for computer vision networks.
+ * is the usual input shape for computer vision networks.
  *
  * Tries to guess what to do based on some heuristics:
  *  - tries to adapt the element type according to the expected input:
@@ -68,14 +76,42 @@ cv::Mat permute_dims(cv::Mat m, std::vector<int> new_order);
  *     INT32: Values are CONVERTED from integer and floating point formats
  *  - If H,W do not match the rows and cols of the input, use `cv::resize` to resample the input
  *  - if image channels do not match C, use `cv::cvtColor` where possible to adapt the number of
- *channels
+ * channels
  *  - makes the channel an explicit dimension and reshapes the channels to the normal input, i.e.
- *transforms from the standard OpenCV layout of [H,W,C] (interleaved channels) to [C,H,W] (separated
- *channels)
+ * transforms from the standard OpenCV layout of [H,W,C] (interleaved channels) to [C,H,W]
+ * (separated channels)
  *
  * \return a `cv::Mat` that should have a shape that can be passed directly to `m.predict()`. If
- *this method was not successful, will return an emtpy matrix.
+ * this method was not successful, will return an emtpy matrix.
  */
 cv::Mat try_adjust_input(cv::Mat input, int input_index, model& m);
+
+/**
+ * Helper function to iterate over all channels in a channel-separated image.
+ * Functor gets called with the channel index and the channel image as a cv::Mat
+ */
+template<typename Functor>
+void for_each_channel(cv::Mat result, Functor appliedFunction)
+{
+    assert(result.dims == 4 ||
+           result.dims == 3 &&
+               "This method only works for 4-dimensional tensors of shape (1, C, H, W)");
+
+    int  channel_dim = result.dims == 4 ? 1 : 0;
+    auto ranges      = result.dims == 3
+                      ? std::vector<cv::Range>{cv::Range::all(), cv::Range::all(), cv::Range::all()}
+                      : std::vector<cv::Range>{cv::Range(0, 1), cv::Range::all(), cv::Range::all(),
+                                               cv::Range::all()};
+
+    int nChannels = result.size[channel_dim];
+    for (int c{}; c < nChannels; ++c)
+    {
+        ranges[channel_dim] = cv::Range(c, c + 1);
+        auto channel        = result(ranges).reshape(1, result.size[2]);
+        appliedFunction(c, channel);
+    }
+}
+
+std::unordered_map<size_t, std::string> load_class_labels(const std::string& filename);
 
 } // namespace eztrt
