@@ -1,5 +1,11 @@
 # EZTRT - Wrappers for NVidia TensorRT for easy use with OpenCV
-Wrapper library for NVidia TensorRT library for easy use with OpenCV
+Wrapper library for NVidia TensorRT library for easy use with OpenCV.
+
+**Note**: OpenCV has had a DNN module for quite some time and has [added direct CuDNN support recently in 4.2](https://github.com/opencv/opencv/pull/14827). It provides a well-documented and extensive API to build, load and run your models. This library exists for two reasons:
+1) To use OpenCV Cuda DNN backend, you will likely need to compile opencv yourself
+2) To my knowledge, the OpenCV backend does not use TensorRT, which employs and optimized your model to provide optimal inference times.
+
+This library is posed to provide an easy to use interface within a minimal, straight-forward library to integrate ML into your projects.
 
 ## Setup
 Compile and install the project using CMake.
@@ -11,7 +17,7 @@ You will need:
 Currently tested on Windows (MSVC 2017), TensorRT 7.0, CUDA 10.2. Other platforms may work.
 
 ## Usage
-After `make` and `make install`, import in your cmake-based project with
+After `make` and `make install` (or the windows equivalent, for example running the INSTALL target in VS), import in your own cmake-based project with
 ```CMake
     find_package(eztrt REQUIRED)
     target_link_libraries(your-project eztrt::eztrt)
@@ -67,7 +73,7 @@ Currently the most basic functionality works: One single input, one single outpu
  - Loading a serialized engine should not require the model definition (ONNX) file anymore. 
  - Extend to multiple inputs and outputs
  - support different element data types (currently everything is converted to float, not even sure what happens with a model that expects different a different `dtype`)
- - batch processing (currently only single-shot inference is possible)
+ - **batch processing**. currently only single image inference is possible. This is bad, because for inference GPUs really start to shine when doing batch processing.
  - asynchronous processing
  - lots more convenience and stability things
  - Support `opencv::cuda` cv::Mats
